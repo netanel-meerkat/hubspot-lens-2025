@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HubSpot Lens Icon Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .icon-preview { margin: 20px 0; }
+        canvas { border: 1px solid #ccc; margin: 10px; }
+        .download-btn { 
+            background: #ff7a59; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 HubSpot Lens Icon Generator</h1>
+    <p>This page generates PNG icons from the SVG source. Right-click each canvas and "Save image as..." to download.</p>
+    
+    <div class="icon-preview">
+        <h3>Icon 16x16</h3>
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <button class="download-btn" onclick="downloadIcon('icon16', 'icon16.png')">Download 16x16</button>
+    </div>
+    
+    <div class="icon-preview">
+        <h3>Icon 19x19</h3>
+        <canvas id="icon19" width="19" height="19"></canvas>
+        <button class="download-btn" onclick="downloadIcon('icon19', 'icon19.png')">Download 19x19</button>
+    </div>
+    
+    <div class="icon-preview">
+        <h3>Icon 32x32</h3>
+        <canvas id="icon32" width="32" height="32"></canvas>
+        <button class="download-btn" onclick="downloadIcon('icon32', 'icon32.png')">Download 32x32</button>
+    </div>
+    
+    <div class="icon-preview">
+        <h3>Icon 48x48</h3>
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <button class="download-btn" onclick="downloadIcon('icon48', 'icon48.png')">Download 48x48</button>
+    </div>
+    
+    <div class="icon-preview">
+        <h3>Icon 128x128</h3>
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <button class="download-btn" onclick="downloadIcon('icon128', 'icon128.png')">Download 128x128</button>
+    </div>
+
+    <script>
+        // SVG content
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+            <circle cx="64" cy="64" r="60" fill="#f9fafb" stroke="#e5e7eb" stroke-width="2"/>
+            <circle cx="64" cy="64" r="45" fill="url(#glassGradient)" stroke="#ff7a59" stroke-width="3"/>
+            <circle cx="58" cy="58" r="35" fill="url(#highlightGradient)" opacity="0.3"/>
+            <path d="M85 85 L105 105 M105 85 L85 105" stroke="#ff7a59" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="40" r="4" fill="#ff7a59" opacity="0.8"/>
+            <circle cx="88" cy="40" r="3" fill="#ff7a59" opacity="0.6"/>
+            <circle cx="40" cy="88" r="3" fill="#ff7a59" opacity="0.6"/>
+            <defs>
+                <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9"/>
+                    <stop offset="100%" style="stop-color:#f3f4f6;stop-opacity:0.7"/>
+                </linearGradient>
+                <linearGradient id="highlightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8"/>
+                    <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.2"/>
+                </linearGradient>
+            </defs>
+        </svg>`;
+
+        // Generate icons
+        function generateIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Create image from SVG
+            const img = new Image();
+            const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(svgBlob);
+            
+            img.onload = function() {
+                // Clear canvas
+                ctx.clearRect(0, 0, size, size);
+                
+                // Draw SVG scaled to canvas size
+                ctx.drawImage(img, 0, 0, size, size);
+                
+                URL.revokeObjectURL(url);
+            };
+            
+            img.src = url;
+        }
+
+        // Download function
+        function downloadIcon(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        // Generate all icons when page loads
+        window.onload = function() {
+            generateIcon('icon16', 16);
+            generateIcon('icon19', 19);
+            generateIcon('icon32', 32);
+            generateIcon('icon48', 48);
+            generateIcon('icon128', 128);
+        };
+    </script>
+</body>
+</html>

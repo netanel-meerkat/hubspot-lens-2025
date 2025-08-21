@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "HubSpot Lens",
+  "version": "3.0.0",
+  "description": "See everything, clearly. Advanced HubSpot CRM data exploration with modern UI and enhanced filtering.",
+  "permissions": [
+    "identity",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*.hubspot.com/*",
+    "https://api.hubapi.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.hubspot.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_title": "HubSpot Lens - Drawer Only"
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "19": "assets/icons/icon19.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["record-inspector.html", "record-inspector.js"],
+      "matches": ["https://*.hubspot.com/*"]
+    }
+  ]
+}

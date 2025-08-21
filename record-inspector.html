@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HubSpot Record Lens</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .record-info {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 20px;
+        }
+        
+        .search-container {
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139,92,246,0.25);
+        }
+        
+        .fields-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .fields-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 1px solid #e9ecef;
+            color: #495057;
+        }
+        
+        .fields-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+        }
+        
+        .fields-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .api-name {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            color: #495057;
+        }
+        
+        .field-name {
+            font-weight: 500;
+            color: #212529;
+        }
+        
+        .field-type {
+            color: #6c757d;
+            font-size: 12px;
+        }
+        
+        .field-value {
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+        
+        .null-value {
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .date-value {
+            color: #10b981;
+        }
+        
+        .object-value {
+            color: #6c757d;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 HubSpot Record Lens</h1>
+            <div class="record-info">
+                <span id="record-id-display">Loading...</span>
+                <span id="record-type-display"></span>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="search-container">
+                <input type="text" id="search-input" class="search-input" placeholder="Search fields by API name, field name, type, or value...">
+            </div>
+            
+            <div id="loading" class="loading">
+                <p>Loading record data...</p>
+            </div>
+            
+            <div id="error" class="error" style="display: none;">
+                <p id="error-message"></p>
+            </div>
+            
+            <div id="no-data" class="no-data" style="display: none;">
+                <p>No record data available</p>
+            </div>
+            
+            <table id="fields-table" class="fields-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Field API Name</th>
+                        <th>Field Name</th>
+                        <th>Field Type</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="fields-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="record-inspector.js"></script>
+</body>
+</html> 

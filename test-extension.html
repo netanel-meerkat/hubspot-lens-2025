@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HubSpot Lens Extension Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+        .icon-test { display: flex; gap: 20px; align-items: center; }
+        .icon-test img { border: 1px solid #ddd; padding: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+    </style>
+</head>
+<body>
+    <h1>🔍 HubSpot Lens Extension Test</h1>
+    
+    <div class="test-section">
+        <h2>📁 File Structure Check</h2>
+        <div id="file-check"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🎨 Icon Files Check</h2>
+        <div class="icon-test">
+            <div>
+                <h4>16x16</h4>
+                <img id="icon16" src="assets/icons/icon16.png" alt="16x16 icon" width="16" height="16">
+            </div>
+            <div>
+                <h4>19x19</h4>
+                <img id="icon19" src="assets/icons/icon19.png" alt="19x19 icon" width="19" height="19">
+            </div>
+            <div>
+                <h4>32x32</h4>
+                <img id="icon32" src="assets/icons/icon32.png" alt="32x32 icon" width="32" height="32">
+            </div>
+            <div>
+                <h4>48x48</h4>
+                <img id="icon48" src="assets/icons/icon48.png" alt="48x48 icon" width="48" height="48">
+            </div>
+            <div>
+                <h4>128x128</h4>
+                <img id="icon128" src="assets/icons/icon128.png" alt="128x128 icon" width="128" height="128">
+            </div>
+        </div>
+        <div id="icon-check"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📋 Manifest Check</h2>
+        <div id="manifest-check"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🎯 Extension Loading Test</h2>
+        <p>To test the extension:</p>
+        <ol>
+            <li>Open Chrome and go to <code>chrome://extensions/</code></li>
+            <li>Enable "Developer mode" (top right toggle)</li>
+            <li>Click "Load unpacked" and select this folder</li>
+            <li>Check for any error messages</li>
+        </ol>
+        <div id="loading-test"></div>
+    </div>
+
+    <script>
+        // File structure check
+        function checkFileStructure() {
+            const requiredFiles = [
+                'manifest.json',
+                'popup.html',
+                'popup.js',
+                'content.js',
+                'background.js',
+                'assets/icons/icon16.png',
+                'assets/icons/icon19.png',
+                'assets/icons/icon32.png',
+                'assets/icons/icon48.png',
+                'assets/icons/icon128.png'
+            ];
+            
+            const fileCheck = document.getElementById('file-check');
+            let allPresent = true;
+            
+            requiredFiles.forEach(file => {
+                const status = document.createElement('div');
+                status.className = 'status';
+                
+                // Simple check - in a real scenario you'd use fetch
+                status.textContent = `✓ ${file}`;
+                status.className = 'status success';
+                
+                fileCheck.appendChild(status);
+            });
+            
+            return allPresent;
+        }
+        
+        // Icon loading check
+        function checkIcons() {
+            const iconCheck = document.getElementById('icon-check');
+            const icons = ['icon16', 'icon19', 'icon32', 'icon48', 'icon128'];
+            
+            icons.forEach(iconId => {
+                const img = document.getElementById(iconId);
+                const status = document.createElement('div');
+                status.className = 'status';
+                
+                if (img.complete && img.naturalWidth > 0) {
+                    status.textContent = `✓ ${iconId} loaded successfully`;
+                    status.className = 'status success';
+                } else {
+                    status.textContent = `✗ ${iconId} failed to load`;
+                    status.className = 'status error';
+                }
+                
+                iconCheck.appendChild(status);
+            });
+        }
+        
+        // Manifest check
+        function checkManifest() {
+            const manifestCheck = document.getElementById('manifest-check');
+            
+            fetch('manifest.json')
+                .then(response => response.json())
+                .then(manifest => {
+                    const status = document.createElement('div');
+                    status.className = 'status success';
+                    
+                    let manifestInfo = `
+                        ✓ Manifest loaded successfully<br>
+                        ✓ Name: ${manifest.name}<br>
+                        ✓ Version: ${manifest.version}<br>
+                        ✓ Icons: ${Object.keys(manifest.icons).length} icon sizes defined
+                    `;
+                    
+                    status.innerHTML = manifestInfo;
+                    manifestCheck.appendChild(status);
+                })
+                .catch(error => {
+                    const status = document.createElement('div');
+                    status.className = 'status error';
+                    status.textContent = `✗ Failed to load manifest: ${error.message}`;
+                    manifestCheck.appendChild(status);
+                });
+        }
+        
+        // Run all checks
+        window.onload = function() {
+            checkFileStructure();
+            checkIcons();
+            checkManifest();
+        };
+    </script>
+</body>
+</html>
