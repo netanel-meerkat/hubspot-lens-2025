@@ -1,11 +1,572 @@
 // HubSpot Lens - Clean Content Script
 console.log('🔍 HubSpot Lens initializing...');
 
+// ===== QUICK LINKS FUNCTIONS - DEFINED AT THE VERY TOP =====
+// These functions must be defined before any HTML is rendered
+
+// Simple modal function that works immediately
+function createQuickLinkDialog(slotIndex = null) {
+  console.log('🔗 Creating quick link dialog for slot:', slotIndex);
+  
+  // Clean up ALL existing modals first
+  window.cleanupAllModals();
+  
+  // Create a simple modal that works immediately
+  const modal = document.createElement('div');
+  modal.id = 'quicklink-dialog';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.5);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  `;
+  
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 100%;
+    padding: 20px;
+    text-align: center;
+  `;
+  
+  modalContent.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #1e293b;">Add Quick Link</h3>
+    <p style="color: #6b7280; margin-bottom: 20px;">Quick Links system is loading...</p>
+    <button onclick="this.parentElement.parentElement.parentElement.remove()" style="
+      background: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+    ">Close</button>
+  `;
+  
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  // Try to load the full modal after a short delay
+  setTimeout(() => {
+    if (window.QUICK_LINKS) {
+      modal.remove();
+      createFullQuickLinkDialog(slotIndex);
+    }
+  }, 1000);
+}
+
+// Full modal function that requires QUICK_LINKS to be ready
+async function createFullQuickLinkDialog(slotIndex = null) {
+  try {
+    console.log('🔗 Creating full quick link dialog for slot:', slotIndex);
+    
+    // Clean up ALL existing modals first
+    window.cleanupAllModals();
+    
+    // Check if QUICK_LINKS is available
+    if (!window.QUICK_LINKS) {
+      console.error('❌ QUICK_LINKS not available yet');
+      alert('Quick Links system not ready. Please try again in a moment.');
+      return;
+    }
+    
+    // Get current quick links to filter out already used ones
+    const currentQuickLinks = await window.QUICK_LINKS.getQuickLinks();
+    const usedUrls = currentQuickLinks.map(link => link.url);
+    
+    // Filter out already used common pages
+    const availableCommonPages = window.QUICK_LINKS.commonPages.filter(page => !usedUrls.includes(page.url));
+    
+    // Create the full modal here
+    const modal = document.createElement('div');
+    modal.id = 'quicklink-full-dialog';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.5);
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    `;
+    
+    modalContent.innerHTML = `
+      <div style="
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      ">
+        <h3 style="margin: 0; font-size: 18px;">Quick Link Manager</h3>
+        <button id="close-full-dialog" style="
+          background: rgba(255,255,255,0.2);
+          border: none;
+          color: white;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 8px;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+        ">×</button>
+      </div>
+      
+      <div style="padding: 20px; display: flex; flex-direction: column; gap: 24px; max-height: 70vh;">
+        <!-- Top Half: Custom Link Form -->
+        <div>
+          <h4 style="margin: 0 0 16px 0; color: #1e293b; font-size: 16px;">🔗 Create your own:</h4>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="text" id="custom-link-name" placeholder="Link name (e.g., My Custom Page)" style="
+              padding: 10px 12px;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              font-size: 14px;
+            ">
+            <input type="text" id="custom-link-description" placeholder="Description (optional)" style="
+              padding: 10px 12px;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              font-size: 14px;
+            ">
+            <input type="url" id="custom-link-url" placeholder="https://app.hubspot.com/... or https://app-eu1.hubspot.com/..." style="
+              padding: 10px 12px;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              font-size: 14px;
+            ">
+            
+            <!-- Color Selection -->
+            <div>
+              <label style="display: block; margin-bottom: 6px; color: #374151; font-size: 14px;">Choose color (optional):</label>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="color-option" data-color="" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #f8fafc; cursor: pointer; transition: all 0.2s ease;
+                " title="Default"></button>
+                <button type="button" class="color-option" data-color="#fef3c7" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #fef3c7; cursor: pointer; transition: all 0.2s ease;
+                " title="Yellow"></button>
+                <button type="button" class="color-option" data-color="#dbeafe" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #dbeafe; cursor: pointer; transition: all 0.2s ease;
+                " title="Blue"></button>
+                <button type="button" class="color-option" data-color="#d1fae5" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #d1fae5; cursor: pointer; transition: all 0.2s ease;
+                " title="Green"></button>
+                <button type="button" class="color-option" data-color="#fce7f3" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #fce7f3; cursor: pointer; transition: all 0.2s ease;
+                " title="Pink"></button>
+                <button type="button" class="color-option" data-color="#f3e8ff" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #f3e8ff; cursor: pointer; transition: all 0.2s ease;
+                " title="Purple"></button>
+                <button type="button" class="color-option" data-color="#fed7d7" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #fed7d7; cursor: pointer; transition: all 0.2s ease;
+                " title="Red"></button>
+                <button type="button" class="color-option" data-color="#e0e7ff" style="
+                  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                  background: #e0e7ff; cursor: pointer; transition: all 0.2s ease;
+                " title="Indigo"></button>
+              </div>
+            </div>
+            
+            <button id="add-custom-link-btn" style="
+              background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+              color: white;
+              border: none;
+              padding: 12px;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            ">Add Custom Link</button>
+          </div>
+        </div>
+        
+        <!-- Bottom Half: Quick Suggestions -->
+        <div>
+          <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 16px;">💡 Quick suggestions:</h4>
+          ${availableCommonPages.length > 0 ? `
+            <div id="suggestions-container">
+              <!-- Initial grid view (first 4 suggestions) -->
+              <div id="initial-suggestions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                ${availableCommonPages.slice(0, 4).map(page => `
+                  <button class="common-page-btn" data-name="${page.name}" data-url="${page.url}" data-icon="${page.icon}" style="
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    padding: 8px 10px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    text-align: left;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    min-width: 0;
+                  " onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                    <span style="font-size: 14px; flex-shrink: 0;">${page.icon}</span>
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="font-weight: 500; color: #1e293b; font-size: 12px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${page.name}</div>
+                      <div style="font-size: 10px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${page.url}</div>
+                    </div>
+                  </button>
+                `).join('')}
+              </div>
+              
+              <!-- Expanded view (initially hidden) -->
+              <div id="expanded-suggestions" style="display: none;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 300px; overflow-y: auto;">
+                  ${availableCommonPages.map(page => `
+                    <button class="common-page-btn" data-name="${page.name}" data-url="${page.url}" data-icon="${page.icon}" style="
+                      background: #f8fafc;
+                      border: 1px solid #e2e8f0;
+                      padding: 8px 10px;
+                      border-radius: 6px;
+                      cursor: pointer;
+                      text-align: left;
+                      transition: all 0.2s ease;
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      min-width: 0;
+                    " onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                      <span style="font-size: 14px; flex-shrink: 0;">${page.icon}</span>
+                      <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; color: #1e293b; font-size: 12px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${page.name}</div>
+                        <div style="font-size: 10px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${page.url}</div>
+                      </div>
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <!-- Show More/Less Button (if there are more than 4 suggestions) -->
+              ${availableCommonPages.length > 4 ? `
+                <button id="toggle-suggestions" style="
+                  background: #f3f4f6;
+                  border: 1px solid #d1d5db;
+                  padding: 8px 16px;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 12px;
+                  color: #374151;
+                  transition: all 0.2s ease;
+                  width: 100%;
+                " onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+                  Show ${availableCommonPages.length - 4} more suggestions
+                </button>
+              ` : ''}
+            </div>
+          ` : '<div style="text-align: center; color: #6b7280; padding: 20px; font-style: italic;">No suggestions available</div>'}
+        </div>
+      </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Add event listeners for the modal
+    addFullDialogEventListeners(modal, slotIndex);
+    
+  } catch (error) {
+    console.error('❌ Error creating full quick link dialog:', error);
+    alert('Error creating quick link dialog. Please try again.');
+  }
+}
+
+// Remove quick link function
+async function removeQuickLinkItem(linkId) {
+  if (confirm('Are you sure you want to remove this quick link?')) {
+    try {
+      if (!window.QUICK_LINKS) {
+        alert('Quick Links system not ready. Please try again.');
+        return;
+      }
+      await window.QUICK_LINKS.removeQuickLink(linkId);
+      window.QUICK_LINKS.updateUI();
+      alert('Quick link removed successfully!');
+    } catch (error) {
+      alert('Error removing quick link: ' + error.message);
+    }
+  }
+}
+
+// Add event listeners for quick link elements
+function addQuickLinkEventListeners() {
+  // Add click listener for save current page button
+      const saveCurrentPageBtn = document.getElementById('save-current-page-btn');
+    if (saveCurrentPageBtn) {
+      // Remove any existing event listeners first
+      const newBtn = saveCurrentPageBtn.cloneNode(true);
+      saveCurrentPageBtn.parentNode.replaceChild(newBtn, saveCurrentPageBtn);
+      
+      // Add the event listener to the new button
+      newBtn.addEventListener('click', function() {
+        saveCurrentPageAsQuickLink();
+      });
+      
+      // Store reference to the new button for future use
+      window.currentSaveButton = newBtn;
+    }
+  
+  // Add click listeners for empty slots
+  const emptySlots = document.querySelectorAll('.quicklink-slot.empty');
+  emptySlots.forEach(slot => {
+    slot.addEventListener('click', function() {
+      const slotIndex = parseInt(this.getAttribute('data-slot-index'));
+      createFullQuickLinkDialog(slotIndex);
+    });
+  });
+  
+  // Add click listeners for remove buttons (only the remove button, not the whole slot)
+  const removeButtons = document.querySelectorAll('.remove-quicklink-btn');
+  removeButtons.forEach(button => {
+    button.addEventListener('click', async function(e) {
+      e.stopPropagation(); // Prevent triggering the link click
+      e.preventDefault(); // Prevent any default behavior
+      
+      // Add click animation
+      this.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        this.style.transform = 'scale(1)';
+      }, 150);
+      
+      const linkId = this.getAttribute('data-link-id');
+      console.log('🗑️ Removing quick link:', linkId);
+      
+      const success = await QUICK_LINKS.removeQuickLink(linkId);
+      if (success) {
+        QUICK_LINKS.updateUI();
+        // Visual feedback: briefly highlight the slot before it disappears
+        const slot = this.closest('.quicklink-slot');
+        if (slot) {
+          slot.style.background = '#fef2f2';
+          slot.style.borderColor = '#fecaca';
+          setTimeout(() => {
+            slot.style.transition = 'all 0.3s ease';
+            slot.style.opacity = '0';
+            slot.style.transform = 'translateX(20px)';
+          }, 100);
+        }
+      }
+    });
+  });
+  
+  // Add click listeners for link content (to open URLs)
+  const linkContents = document.querySelectorAll('.quicklink-content');
+  linkContents.forEach(content => {
+    content.addEventListener('click', function(e) {
+      e.stopPropagation(); // Prevent triggering drag
+      const url = this.getAttribute('data-url');
+      if (url) {
+        window.open(url, '_blank');
+      }
+    });
+  });
+}
+
+// Add event listeners for move buttons
+function addMoveButtonEventListeners() {
+  // Move up buttons
+  document.querySelectorAll('.move-up-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const linkId = this.getAttribute('data-link-id');
+      const currentSlot = parseInt(this.getAttribute('data-slot'));
+      
+      if (currentSlot > 0) {
+        // Add click animation
+        this.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          this.style.transform = 'scale(1)';
+        }, 150);
+        
+        console.log('⬆️ Moving link up:', linkId, 'from slot', currentSlot, 'to slot', currentSlot - 1);
+        await moveQuickLink(currentSlot, currentSlot - 1);
+      }
+    });
+  });
+  
+  // Move down buttons
+  document.querySelectorAll('.move-down-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const linkId = this.getAttribute('data-link-id');
+      const currentSlot = parseInt(this.getAttribute('data-slot'));
+      
+      if (currentSlot < 9) {
+        // Add click animation
+        this.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          this.style.transform = 'scale(1)';
+        }, 150);
+        
+        console.log('⬇️ Moving link down:', linkId, 'from slot', currentSlot, 'to slot', currentSlot + 1);
+        await moveQuickLink(currentSlot, currentSlot + 1);
+      }
+    });
+  });
+}
+
+// Add event listeners for the full quick link dialog
+function addFullDialogEventListeners(modal, slotIndex) {
+  // Close button
+  const closeBtn = document.getElementById('close-full-dialog');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      modal.remove();
+    });
+  }
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+  
+  // Common page buttons
+  const commonPageBtns = modal.querySelectorAll('.common-page-btn');
+  commonPageBtns.forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const name = this.getAttribute('data-name');
+      const url = this.getAttribute('data-url');
+      const icon = this.getAttribute('data-icon');
+      
+      try {
+        await window.QUICK_LINKS.addQuickLink(name, url, icon);
+        window.QUICK_LINKS.updateUI();
+        modal.remove();
+        alert('Quick link added successfully!');
+      } catch (error) {
+        alert('Error adding quick link: ' + error.message);
+      }
+    });
+  });
+  
+  // Color selection
+  let selectedColor = '';
+  const colorOptions = modal.querySelectorAll('.color-option');
+  colorOptions.forEach(option => {
+    option.addEventListener('click', function() {
+      // Remove selection from all options
+      colorOptions.forEach(opt => opt.style.border = '2px solid #e5e7eb');
+      // Select this option
+      this.style.border = '2px solid #8b5cf6';
+      selectedColor = this.getAttribute('data-color');
+    });
+  });
+  
+  // Custom link button
+  const addCustomBtn = document.getElementById('add-custom-link-btn');
+  if (addCustomBtn) {
+    addCustomBtn.addEventListener('click', async function() {
+      const nameInput = document.getElementById('custom-link-name');
+      const descriptionInput = document.getElementById('custom-link-description');
+      const urlInput = document.getElementById('custom-link-url');
+      
+      const name = nameInput.value.trim();
+      const description = descriptionInput.value.trim();
+      const url = urlInput.value.trim();
+      
+      if (!name || !url) {
+        alert('Please fill in both name and URL fields.');
+        return;
+      }
+      
+      try {
+        this.textContent = 'Adding...';
+        this.disabled = true;
+        
+        await window.QUICK_LINKS.addQuickLink(name, url, '🔗', description, selectedColor);
+        window.QUICK_LINKS.updateUI();
+        modal.remove();
+        alert('Custom quick link added successfully!');
+      } catch (error) {
+        alert('Error adding custom quick link: ' + error.message);
+      } finally {
+        this.textContent = 'Add Custom Link';
+        this.disabled = false;
+      }
+    });
+  }
+  
+  // Allow Enter key for custom link inputs
+  const customInputs = ['custom-link-name', 'custom-link-url'];
+  customInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          addCustomBtn.click();
+        }
+      });
+    }
+  });
+  
+  // Toggle Suggestions button
+  const toggleBtn = document.getElementById('toggle-suggestions');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function() {
+      const initialView = document.getElementById('initial-suggestions');
+      const expandedView = document.getElementById('expanded-suggestions');
+      
+      if (expandedView.style.display === 'none') {
+        // Show expanded view
+        initialView.style.display = 'none';
+        expandedView.style.display = 'block';
+        this.textContent = 'Show less';
+      } else {
+        // Show initial view
+        initialView.style.display = 'grid';
+        expandedView.style.display = 'none';
+        const totalSuggestions = expandedView.querySelectorAll('.common-page-btn').length;
+        this.textContent = `Show ${totalSuggestions - 4} more suggestions`;
+      }
+    });
+  }
+}
+
 // Initialize global selected properties at the very top
 if (typeof window.selectedProperties === 'undefined') {
   window.selectedProperties = new Set();
   console.log('🔧 Initialized global selectedProperties');
 }
+
+
 
 // Global functions for query cache operations - must be defined at top level
 async function loadSavedQuery(queryId) {
@@ -306,9 +867,9 @@ function createLensDrawer() {
         
     <div style="display: flex; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
       <div class="lens-tab active" data-tab="overview" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid #8b5cf6; color: #8b5cf6;">Overview</div>
-      <div class="lens-tab" data-tab="query" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280;">Query</div>
-      <div class="lens-tab" data-tab="listviews" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280;">List Views</div>
-      <div class="lens-tab" data-tab="results" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280;">Results</div>
+            <div class="lens-tab" data-tab="query" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280;">Query</div>
+      <div class="lens-tab" data-tab="quicklinks" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280;">Quick Links</div>
+        <div class="lens-tab" data-tab="results" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280;">Results</div>
       <div class="lens-tab" data-tab="settings" style="padding: 16px 20px; cursor: pointer; border-bottom: 2px solid transparent; color: #6b7280;">Settings</div>
         </div>
         
@@ -558,43 +1119,44 @@ function createLensDrawer() {
         </div>
       </div>
           
-      <div id="listviews-tab" class="lens-tab-content" style="display: none;">
-        <h4>📋 HubSpot List Views</h4>
-        <p style="margin: 0 0 20px 0; color: #475569; line-height: 1.6;">
-          View and export your HubSpot list views. Select a list to see its contents and export options.
-        </p>
-        
-        <div id="lens-list-views-container" style="
-      padding: 20px;
-          background: #f8fafc;
-      border-radius: 8px;
-      text-align: center;
-          color: #6b7280;
-          min-height: 200px;
-      display: flex;
-      align-items: center;
-          justify-content: center;
-        ">
-            <div>
-            <p style="margin: 0 0 16px 0; font-size: 16px;">List views not loaded yet</p>
-            <p style="margin: 0; font-size: 14px;">Click "Load List Views" to fetch your HubSpot lists</p>
-            </div>
-          </div>
+
           
-        <button id="lens-load-list-views" style="
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-      color: white;
-          border: none;
-          padding: 16px 24px;
-      border-radius: 12px;
-      cursor: pointer;
-          font-size: 16px;
-          font-weight: 600;
-      transition: all 0.2s ease;
-          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
-          width: 100%;
-        ">📋 Load List Views</button>
+      <div id="quicklinks-tab" class="lens-tab-content" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <div>
+            <h4 style="margin: 0;">🔗 Quick Links</h4>
+            <p style="margin: 4px 0 0 0; color: #475569; line-height: 1.6; font-size: 13px;">
+              Drag to reorder • Click to edit • Up to 10 shortcuts
+            </p>
           </div>
+          <button id="save-current-page-btn" style="
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+          " onmouseover="this.style.background='#7c3aed'" onmouseout="this.style.background='#8b5cf6'">
+            💾 Save Current Page
+          </button>
+        </div>
+        
+        <!-- Quick Links List Container -->
+        <div id="quicklinks-list-container" style="
+          max-height: 600px;
+          overflow-y: auto;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: white;
+        ">
+          <div id="quicklinks-list" style="padding: 8px;">
+            <!-- Quick links will be populated here -->
+          </div>
+        </div>
+      </div>
           
       <div id="results-tab" class="lens-tab-content" style="display: none;">
         <h4>📊 Query Results</h4>
@@ -874,14 +1436,7 @@ function setupLensFunctionality() {
     });
   }
   
-  // Load List Views functionality
-  const loadListViewsBtn = document.getElementById('lens-load-list-views');
-  if (loadListViewsBtn) {
-    loadListViewsBtn.addEventListener('click', () => {
-      console.log('📋 Load List Views clicked');
-      loadHubSpotListViews();
-    });
-  }
+
   
   console.log('✅ Lens functionality setup complete');
   
@@ -896,6 +1451,9 @@ function setupLensFunctionality() {
   
   // Initialize query cache functionality
   initializeQueryCache();
+  
+  // Initialize Quick Links functionality
+  initializeQuickLinks();
 }
 
 // REAL HubSpot Query Functions
@@ -1939,135 +2497,11 @@ function downloadFile(content, filename, mimeType) {
     URL.revokeObjectURL(url);
   }
 
-// Load HubSpot List Views Function
-async function loadHubSpotListViews() {
-  try {
-    console.log('📋 Loading HubSpot list views...');
-    
-    // Get access token
-    const data = await chrome.storage.local.get(['accessToken', 'portalId']);
-    if (!data.accessToken || !data.portalId) {
-      alert('Please reconnect to HubSpot first');
-      return;
-    }
-    
-    const loadBtn = document.getElementById('lens-load-list-views');
-    const container = document.getElementById('lens-list-views-container');
-    
-    if (loadBtn) {
-      loadBtn.textContent = '⏳ Loading...';
-      loadBtn.disabled = true;
-    }
-    
-    // Fetch list views from HubSpot
-    chrome.runtime.sendMessage({
-        type: 'apiCall',
-      endpoint: '/crm/v3/lists',
-      accessToken: data.accessToken,
-      portalId: data.portalId
-    }, (response) => {
-      if (response && response.success && response.data) {
-        console.log('✅ List views loaded:', response.data);
-        displayListViews(response.data.results || []);
-      } else {
-        console.error('❌ Failed to load list views:', response?.error);
-        container.innerHTML = `
-          <div>
-            <p style="margin: 0 0 16px 0; font-size: 16px;">Failed to load list views</p>
-            <p style="margin: 0; font-size: 14px;">${response?.error || 'Unknown error'}</p>
-          </div>
-        `;
-      }
-      
-      if (loadBtn) {
-        loadBtn.textContent = '📋 Load List Views';
-        loadBtn.disabled = false;
-      }
-    });
-    
-    } catch (error) {
-    console.error('❌ Error loading list views:', error);
-    alert('Error loading list views: ' + error.message);
-    
-    const loadBtn = document.getElementById('lens-load-list-views');
-    if (loadBtn) {
-      loadBtn.textContent = '📋 Load List Views';
-      loadBtn.disabled = false;
-    }
-  }
-}
 
-function displayListViews(lists) {
-  const container = document.getElementById('lens-list-views-container');
-  if (!container) return;
-  
-  if (lists && lists.length > 0) {
-    const table = document.createElement('table');
-    table.style.cssText = `
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    `;
-    
-    const thead = document.createElement('thead');
-    thead.innerHTML = `
-      <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-        <th style="padding: 12px; text-align: left; font-weight: 600; color: #1e293b;">List Name</th>
-        <th style="padding: 12px; text-align: left; font-weight: 600; color: #1e293b;">Type</th>
-        <th style="padding: 12px; text-align: left; font-weight: 600; color: #1e293b;">Count</th>
-        <th style="padding: 12px; text-align: left; font-weight: 600; color: #1e293b;">Actions</th>
-      </tr>
-    `;
-    
-    const tbody = document.createElement('tbody');
-    lists.forEach(list => {
-      const row = document.createElement('tr');
-      row.style.cssText = 'border-bottom: 1px solid #f1f5f9;';
-      
-      row.innerHTML = `
-        <td style="padding: 12px; font-weight: 500; color: #1e293b;">${list.name || 'Unnamed'}</td>
-        <td style="padding: 12px; color: #6b7280;">${list.listType || 'Unknown'}</td>
-        <td style="padding: 12px; color: #475569;">${list.metaData?.processing || 'N/A'}</td>
-        <td style="padding: 12px; color: #475569;">
-          <button onclick="viewListMembers('${list.listId}')" style="
-            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-      color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-          ">View Members</button>
-        </td>
-      `;
-      
-      tbody.appendChild(row);
-    });
-    
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    container.innerHTML = '';
-    container.appendChild(table);
-    
-    } else {
-    container.innerHTML = `
-      <div>
-        <p style="margin: 0 0 16px 0; font-size: 16px;">No list views found</p>
-        <p style="margin: 0; font-size: 14px;">Create some lists in HubSpot to see them here</p>
-      </div>
-    `;
-  }
-}
 
-// Global function for viewing list members
-window.viewListMembers = function(listId) {
-  console.log('👥 Viewing list members for:', listId);
-  alert(`Viewing members for list: ${listId}\n\nThis would show the actual members of the list.`);
-};
+
+
+
 
 // Query Cache Management System
 const QUERY_CACHE = {
@@ -3439,4 +3873,1154 @@ async function checkAndRefreshTokens() {
   }
 }
 
+// Quick Links Management System
+window.QUICK_LINKS = {
+  // Common HubSpot pages for suggestions
+  commonPages: [
+    { name: 'Contacts List', url: 'https://app.hubspot.com/contacts', icon: '👥' },
+    { name: 'Companies List', url: 'https://app.hubspot.com/contacts/companies', icon: '🏢' },
+    { name: 'Deals Pipeline', url: 'https://app.hubspot.com/sales/deals', icon: '💰' },
+    { name: 'Analytics Dashboard', url: 'https://app.hubspot.com/analytics', icon: '📊' },
+    { name: 'Settings', url: 'https://app.hubspot.com/settings', icon: '⚙️' },
+    { name: 'Workflows', url: 'https://app.hubspot.com/workflows', icon: '🔄' },
+    { name: 'Email Campaigns', url: 'https://app.hubspot.com/marketing/email', icon: '📧' },
+    { name: 'Forms', url: 'https://app.hubspot.com/marketing/forms', icon: '📝' },
+    { name: 'Landing Pages', url: 'https://app.hubspot.com/marketing/landing-pages', icon: '🌐' },
+    { name: 'Tickets', url: 'https://app.hubspot.com/service/tickets', icon: '🎫' },
+    { name: 'Knowledge Base', url: 'https://app.hubspot.com/service/knowledge', icon: '📚' },
+    { name: 'Chatbots', url: 'https://app.hubspot.com/service/bots', icon: '🤖' }
+  ],
+
+  // Get all quick links
+  getQuickLinks: async function() {
+    try {
+      const data = await chrome.storage.local.get(['quickLinks']);
+      return data.quickLinks || [];
+    } catch (error) {
+      console.error('❌ Error getting quick links:', error);
+      return [];
+    }
+  },
+
+  // Save quick links
+  saveQuickLinks: async function(quickLinks) {
+    try {
+      await chrome.storage.local.set({ quickLinks });
+      console.log('💾 Quick links saved:', quickLinks.length);
+      return true;
+    } catch (error) {
+      console.error('❌ Error saving quick links:', error);
+      return false;
+    }
+  },
+
+  // Add a new quick link
+  addQuickLink: async function(name, url, icon = '🔗', description = '', color = '') {
+    try {
+      const quickLinks = await this.getQuickLinks();
+      
+      // Check if we already have 10 links
+      if (quickLinks.length >= 10) {
+        throw new Error('Maximum of 10 quick links allowed. Please remove one first.');
+      }
+      
+      // Check if URL already exists
+      const existingLink = quickLinks.find(link => link.url === url);
+      if (existingLink) {
+        throw new Error('This URL is already in your quick links.');
+      }
+      
+      // Validate URL
+      if (!this.validateUrl(url)) {
+        throw new Error('Please enter a valid HubSpot URL starting with https://app.hubspot.com/');
+      }
+      
+      const newLink = {
+        id: this.generateId(),
+        name: name.trim(),
+        url: url.trim(),
+        icon: icon,
+        description: description.trim(),
+        color: color,
+        createdAt: new Date().toISOString()
+      };
+      
+      quickLinks.push(newLink);
+      await this.saveQuickLinks(quickLinks);
+      
+      console.log('✅ Quick link added:', newLink);
+      return newLink;
+      
+    } catch (error) {
+      console.error('❌ Error adding quick link:', error);
+      throw error;
+    }
+  },
+
+  // Remove a quick link
+  removeQuickLink: async function(linkId) {
+    try {
+      const quickLinks = await this.getQuickLinks();
+      const filteredLinks = quickLinks.filter(link => link.id !== linkId);
+      await this.saveQuickLinks(filteredLinks);
+      
+      console.log('✅ Quick link removed:', linkId);
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error removing quick link:', error);
+      return false;
+    }
+  },
+
+  // Validate URL
+  validateUrl: function(url) {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.match(/^app(-[a-z0-9]+)?\.hubspot\.com$/) && urlObj.protocol === 'https:';
+    } catch (error) {
+      return false;
+    }
+  },
+
+  // Generate unique ID
+  generateId: function() {
+    return 'ql_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  },
+
+  // Format URL for display (remove domain prefix)
+  formatUrlForDisplay: function(url) {
+    try {
+      const urlObj = new URL(url);
+      // Remove the domain and protocol, keep only the path
+      return urlObj.pathname + urlObj.search + urlObj.hash;
+    } catch (error) {
+      // Fallback: try to remove common HubSpot prefixes
+      return url.replace(/^https?:\/\/(app(-[a-z0-9]+)?\.)?hubspot\.com/, '');
+    }
+  },
+
+  // Update UI
+  updateUI: function() {
+    this.renderQuickLinks();
+  }
+};
+
+// Initialize Quick Links functionality
+function initializeQuickLinks() {
+  console.log('🔗 Initializing Quick Links functionality...');
+  
+  // Load and display quick links
+  QUICK_LINKS.updateUI();
+  
+
+  
+  console.log('✅ Quick Links functionality initialized');
+}
+
+
+
+// Global function to clean up all modals
+window.cleanupAllModals = function() {
+  console.log('🧹 Cleaning up modals...');
+  
+  // Remove specific modal IDs only - more targeted cleanup
+  const specificModals = document.querySelectorAll('#current-page-dialog, #quicklink-full-dialog, #quicklink-selector-modal, #quicklink-dialog');
+  console.log('Found modals to remove:', specificModals.length);
+  
+  specificModals.forEach(modal => {
+    if (modal && document.body.contains(modal)) {
+      console.log('Removing modal:', modal.id);
+      modal.remove();
+    }
+  });
+  
+  // Remove any fixed positioned overlays that are NOT the extension itself
+  const overlays = document.querySelectorAll('[style*="position: fixed"][style*="z-index: 100000"]');
+  overlays.forEach(overlay => {
+    if (overlay && document.body.contains(overlay)) {
+      // Don't remove the extension container
+      const isExtension = overlay.id === 'hubspot-lens-extension' || 
+                         overlay.id === 'hubspot-lens-container' ||
+                         overlay.classList.contains('lens-container') ||
+                         overlay.getAttribute('data-extension') === 'true';
+      if (!isExtension) {
+        overlay.remove();
+      }
+    }
+  });
+  
+  // Remove any backdrop elements that are NOT the extension
+  const backdrops = document.querySelectorAll('[style*="backdrop-filter"]');
+  backdrops.forEach(backdrop => {
+    if (backdrop && document.body.contains(backdrop)) {
+      // Don't remove the extension container
+      const isExtension = backdrop.id === 'hubspot-lens-extension' || 
+                         backdrop.id === 'hubspot-lens-container' ||
+                         backdrop.classList.contains('lens-container') ||
+                         backdrop.getAttribute('data-extension') === 'true';
+      if (!isExtension) {
+        backdrop.remove();
+      }
+    }
+  });
+  
+  // Reset the flag
+  isCreatingCurrentPageModal = false;
+  
+  // Re-attach event listener to the save button if it exists
+  if (window.currentSaveButton) {
+    console.log('🔗 Re-attaching event listener to save button');
+    // Remove any existing listeners by cloning
+    const newBtn = window.currentSaveButton.cloneNode(true);
+    window.currentSaveButton.parentNode.replaceChild(newBtn, window.currentSaveButton);
+    window.currentSaveButton = newBtn;
+    
+    newBtn.addEventListener('click', function() {
+      saveCurrentPageAsQuickLink();
+    });
+  }
+};
+
+// Flag to prevent multiple simultaneous calls
+let isCreatingCurrentPageModal = false;
+
+// Save current page as quick link
+window.saveCurrentPageAsQuickLink = function() {
+  console.log('🔗 saveCurrentPageAsQuickLink called');
+  
+  // Prevent multiple simultaneous calls
+  if (isCreatingCurrentPageModal) {
+    console.log('🔗 Already creating modal, ignoring call');
+    return;
+  }
+  
+  isCreatingCurrentPageModal = true;
+  
+  const currentUrl = window.location.href;
+  
+  // Check if current URL is a valid HubSpot URL
+  if (!QUICK_LINKS.validateUrl(currentUrl)) {
+    console.log('🔗 Invalid HubSpot URL');
+    isCreatingCurrentPageModal = false;
+    return;
+  }
+  
+  // Clean up ALL existing modals first
+  console.log('🔗 About to cleanup modals');
+  window.cleanupAllModals();
+  
+  // Check if URL is already in quick links
+  QUICK_LINKS.getQuickLinks().then(quickLinks => {
+    const isAlreadyAdded = quickLinks.some(link => link.url === currentUrl);
+    if (isAlreadyAdded) {
+      console.log('🔗 URL already in quick links');
+      isCreatingCurrentPageModal = false;
+      return;
+    }
+    
+    // Check if we have space for more links
+    if (quickLinks.length >= 10) {
+      console.log('🔗 Maximum quick links reached');
+      isCreatingCurrentPageModal = false;
+      return;
+    }
+    
+    // Create dialog for naming the current page
+    createCurrentPageDialog(currentUrl);
+  }).catch(error => {
+    console.error('🔗 Error checking quick links:', error);
+    isCreatingCurrentPageModal = false;
+  });
+  
+  // Safety timeout to reset flag if something goes wrong
+  setTimeout(() => {
+    if (isCreatingCurrentPageModal) {
+      console.log('🔗 Safety timeout - resetting flag');
+      isCreatingCurrentPageModal = false;
+    }
+  }, 5000);
+};
+
+// Create dialog for saving current page
+window.createCurrentPageDialog = function(url) {
+  console.log('🔗 createCurrentPageDialog called with URL:', url);
+  const modal = document.createElement('div');
+  modal.id = 'current-page-dialog';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.3);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    ">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; font-size: 18px;">💾 Save Current Page</h3>
+        <button id="close-current-page-dialog" style="
+          background: rgba(255,255,255,0.2);
+          border: none;
+          color: #6b7280;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 8px;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+        ">×</button>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 6px; color: #374151; font-size: 14px;">Page Name:</label>
+        <input type="text" id="current-page-name" placeholder="Enter a name for this page" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          box-sizing: border-box;
+        ">
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 6px; color: #374151; font-size: 14px;">Description (optional):</label>
+        <input type="text" id="current-page-description" placeholder="Enter a description" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          box-sizing: border-box;
+        ">
+      </div>
+      
+      <!-- Symbol Selection -->
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 6px; color: #374151; font-size: 14px;">Choose symbol (optional):</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="current-page-symbol-option" data-symbol="🔗" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Link">🔗</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="📊" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Analytics">📊</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="👥" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Contacts">👥</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="🏢" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Companies">🏢</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="💰" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Deals">💰</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="🎫" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Tickets">🎫</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="📧" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Email">📧</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="📞" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Phone">📞</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="📅" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Calendar">📅</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="⚙️" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Settings">⚙️</button>
+          <button type="button" class="current-page-symbol-option" data-symbol="⭐" style="
+            width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+          " title="Star">⭐</button>
+        </div>
+      </div>
+      
+      <!-- Color Selection -->
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 6px; color: #374151; font-size: 14px;">Choose color (optional):</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="current-page-color-option" data-color="" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #f8fafc; cursor: pointer; transition: all 0.2s ease;
+          " title="Default"></button>
+          <button type="button" class="current-page-color-option" data-color="#fef3c7" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #fef3c7; cursor: pointer; transition: all 0.2s ease;
+          " title="Yellow"></button>
+          <button type="button" class="current-page-color-option" data-color="#dbeafe" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #dbeafe; cursor: pointer; transition: all 0.2s ease;
+          " title="Blue"></button>
+          <button type="button" class="current-page-color-option" data-color="#d1fae5" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #d1fae5; cursor: pointer; transition: all 0.2s ease;
+          " title="Green"></button>
+          <button type="button" class="current-page-color-option" data-color="#fce7f3" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #fce7f3; cursor: pointer; transition: all 0.2s ease;
+          " title="Pink"></button>
+          <button type="button" class="current-page-color-option" data-color="#f3e8ff" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #f3e8ff; cursor: pointer; transition: all 0.2s ease;
+          " title="Purple"></button>
+          <button type="button" class="current-page-color-option" data-color="#fed7d7" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #fed7d7; cursor: pointer; transition: all 0.2s ease;
+          " title="Red"></button>
+          <button type="button" class="current-page-color-option" data-color="#e0e7ff" style="
+            width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+            background: #e0e7ff; cursor: pointer; transition: all 0.2s ease;
+          " title="Indigo"></button>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="cancel-current-page" style="
+          background: #f3f4f6;
+          color: #374151;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        ">Cancel</button>
+        <button id="save-current-page" style="
+          background: #8b5cf6;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        ">Save Page</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Add event listeners with proper error handling
+  let selectedSymbol = '🔗';
+  let selectedColor = '';
+  
+  // Symbol selection
+  const symbolButtons = modal.querySelectorAll('.current-page-symbol-option');
+  symbolButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+      symbolButtons.forEach(b => b.style.borderColor = '#e5e7eb');
+      this.style.borderColor = '#8b5cf6';
+      selectedSymbol = this.getAttribute('data-symbol');
+    });
+  });
+  
+  // Color selection
+  const colorButtons = modal.querySelectorAll('.current-page-color-option');
+  colorButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+      colorButtons.forEach(b => b.style.borderColor = '#e5e7eb');
+      this.style.borderColor = '#8b5cf6';
+      selectedColor = this.getAttribute('data-color');
+    });
+  });
+  
+  // Close button
+  const closeBtn = modal.querySelector('#close-current-page-dialog');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (document.body.contains(modal)) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
+  
+  // Cancel button
+  const cancelBtn = modal.querySelector('#cancel-current-page');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      if (document.body.contains(modal)) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
+  
+  // Save button
+  const saveBtn = modal.querySelector('#save-current-page');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      const nameInput = modal.querySelector('#current-page-name');
+      const descriptionInput = modal.querySelector('#current-page-description');
+      
+      if (!nameInput) return;
+      
+      const name = nameInput.value.trim();
+      const description = descriptionInput ? descriptionInput.value.trim() : '';
+      
+      if (!name) {
+        return;
+      }
+      
+      try {
+        await QUICK_LINKS.addQuickLink(name, url, selectedSymbol, description, selectedColor);
+        
+        QUICK_LINKS.updateUI();
+        if (document.body.contains(modal)) {
+          document.body.removeChild(modal);
+        }
+      } catch (error) {
+        console.error('Error saving current page:', error);
+      }
+    });
+  }
+};
+
+// Remove quick link function
+window.removeQuickLink = async function(linkId) {
+  if (confirm('Are you sure you want to remove this quick link?')) {
+    try {
+      await QUICK_LINKS.removeQuickLink(linkId);
+      QUICK_LINKS.updateUI();
+      showQuickLinkMessage('Quick link removed successfully!', 'success');
+    } catch (error) {
+      showQuickLinkMessage('Error removing quick link: ' + error.message, 'error');
+    }
+  }
+}
+
+// Render quick links
+QUICK_LINKS.renderQuickLinks = async function() {
+  const container = document.getElementById('quicklinks-list');
+  
+  if (!container) return;
+  
+  const quickLinks = await this.getQuickLinks();
+  
+  // Create 10 slots (filled or empty)
+  const slots = [];
+  for (let i = 0; i < 10; i++) {
+    const link = quickLinks[i];
+    if (link) {
+      // Filled slot
+      slots.push(`
+                <div class="quicklink-slot" data-slot="${i}" data-link-id="${link.id}" style="
+          padding: 16px 20px;
+          margin-bottom: 8px;
+          background: ${link.color || '#f8fafc'};
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          transition: all 0.3s ease;
+          position: relative;
+          height: 80px;
+          display: flex;
+          align-items: center;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          cursor: pointer;
+        " onmouseover="this.style.background='${link.color ? link.color + 'dd' : '#f1f5f9'}'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'; this.style.transform='translateY(-1px)'; this.querySelector('.action-buttons').style.opacity='1'" onmouseout="this.style.background='${link.color || '#f8fafc'}'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'; this.style.transform='translateY(0)'; this.querySelector('.action-buttons').style.opacity='0'">
+          
+          <!-- Link Content -->
+          <div class="quicklink-content" data-url="${link.url}" style="
+            display: flex; 
+            align-items: center; 
+            gap: 16px; 
+            flex: 1;
+            cursor: pointer;
+            min-height: 48px;
+          " title="Click to open link">
+            <div style="
+              width: 32px;
+              height: 32px;
+              background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-size: 14px;
+              font-weight: 600;
+              flex-shrink: 0;
+              box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+            ">${link.icon || '🔗'}</div>
+            
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; height: 48px;">
+              <div style="font-weight: 600; color: #1e293b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; margin-bottom: 2px;">${link.name}</div>
+              ${link.description ? `<div style="font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; margin-bottom: 2px;">${link.description}</div>` : ''}
+              <div style="font-size: 11px; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; max-width: calc(100% - 80px);" title="${link.url}">${QUICK_LINKS.formatUrlForDisplay(link.url)}</div>
+            </div>
+          </div>
+          
+          <!-- Action Buttons Container -->
+          <div class="action-buttons" style="
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: row;
+            gap: 4px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 10;
+          ">
+            <!-- Move Up Button -->
+            <button class="move-up-btn" data-link-id="${link.id}" data-slot="${i}" style="
+              background: #8b5cf6;
+              color: white;
+              border: none;
+              padding: 4px 8px;
+              border-radius: 4px;
+              cursor: ${i === 0 ? 'not-allowed' : 'pointer'};
+              font-size: 11px;
+              transition: all 0.15s ease;
+              ${i === 0 ? 'opacity: 0.4; background: #9ca3af;' : ''}
+            " onmouseover="this.style.background='${i === 0 ? '#9ca3af' : '#7c3aed'}'" onmouseout="this.style.background='${i === 0 ? '#9ca3af' : '#8b5cf6'}'" ${i === 0 ? 'disabled' : ''}>↑</button>
+            
+            <!-- Move Down Button -->
+            <button class="move-down-btn" data-link-id="${link.id}" data-slot="${i}" style="
+              background: #8b5cf6;
+              color: white;
+              border: none;
+              padding: 4px 8px;
+              border-radius: 4px;
+              cursor: ${i === 9 ? 'not-allowed' : 'pointer'};
+              font-size: 11px;
+              transition: all 0.15s ease;
+              ${i === 9 ? 'opacity: 0.4; background: #9ca3af;' : ''}
+            " onmouseover="this.style.background='${i === 9 ? '#9ca3af' : '#7c3aed'}'" onmouseout="this.style.background='${i === 9 ? '#9ca3af' : '#8b5cf6'}'" ${i === 9 ? 'disabled' : ''}>↓</button>
+            
+            <!-- Remove Button -->
+            <button class="remove-quicklink-btn" data-link-id="${link.id}" style="
+              background: #ef4444;
+              color: white;
+              border: none;
+              padding: 4px 8px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 11px;
+              transition: all 0.15s ease;
+            " onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">×</button>
+          </div>
+        </div>
+      `);
+    } else {
+      // Empty slot
+      slots.push(`
+        <div class="quicklink-slot empty" data-slot="${i}" style="
+          padding: 16px 20px;
+          margin-bottom: 8px;
+          background: #f9fafb;
+          border: 2px dashed #d1d5db;
+          border-radius: 10px;
+          transition: all 0.3s ease;
+          cursor: pointer;
+          text-align: center;
+          color: #6b7280;
+          height: 80px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        " data-slot-index="${i}" onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#9ca3af'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#f9fafb'; this.style.borderColor='#d1d5db'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'; this.style.transform='translateY(0)'">
+          <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+          ">
+            <div style="
+              width: 32px;
+              height: 32px;
+              background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+              border-radius: 8px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #9ca3af;
+              font-size: 16px;
+              font-weight: 600;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            ">➕</div>
+            <div style="font-size: 14px; font-weight: 600; color: #6b7280;">Add Quick Link</div>
+            <div style="font-size: 11px; color: #9ca3af;">Click to add a new link</div>
+          </div>
+        </div>
+      `);
+    }
+  }
+  
+  container.innerHTML = slots.join('');
+  
+  // Add event listeners for the rendered elements
+  addQuickLinkEventListeners();
+  
+  // Add event listeners for move buttons
+  addMoveButtonEventListeners();
+};
+
+
+
+// Show Quick Link Selector Modal
+window.showQuickLinkSelector = function(slotIndex = null) {
+  const quickLinks = QUICK_LINKS.getQuickLinks();
+  const usedUrls = quickLinks.map(link => link.url);
+  
+  // Filter out already used common pages
+  const availableCommonPages = QUICK_LINKS.commonPages.filter(page => !usedUrls.includes(page.url));
+  
+  // Create modal
+  const modal = document.createElement('div');
+  modal.id = 'quicklink-selector-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.5);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  `;
+  
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  `;
+  
+  modalContent.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    ">
+              <h3 style="margin: 0; font-size: 18px;">Quick Link Manager</h3>
+      <button id="close-selector-modal" style="
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 8px;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+      ">×</button>
+    </div>
+    
+    <div style="padding: 20px; display: flex; gap: 24px; max-height: 80vh; overflow-y: auto;">
+      <!-- Left Column: Common Pages -->
+      <div style="flex: 1; min-width: 0;">
+        <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 16px;">💡 Please choose an existing link:</h4>
+        ${availableCommonPages.length > 0 ? `
+          <div style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 8px;">
+            ${availableCommonPages.map(page => `
+              <button onclick="selectCommonPage('${page.name}', '${page.url}', '${page.icon}', ${slotIndex})" style="
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                padding: 10px 12px;
+                border-radius: 6px;
+                cursor: pointer;
+                text-align: left;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+              " onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                <span style="font-size: 16px; flex-shrink: 0;">${page.icon}</span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-weight: 500; color: #1e293b; font-size: 13px; margin-bottom: 2px;">${page.name}</div>
+                  <div style="font-size: 11px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${page.url}</div>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        ` : '<div style="text-align: center; color: #6b7280; padding: 20px;">No common pages available</div>'}
+      </div>
+      
+      <!-- Right Column: Custom Link -->
+      <div style="flex: 1; min-width: 0;">
+        <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 16px;">🔗 Or add your own:</h4>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <input type="text" id="custom-link-name" placeholder="Link name (e.g., My Custom Page)" style="
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+          ">
+          <input type="text" id="custom-link-description" placeholder="Description (optional)" style="
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+          ">
+          <input type="url" id="custom-link-url" placeholder="https://app.hubspot.com/... or https://app-eu1.hubspot.com/..." style="
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+          ">
+          
+          <!-- Symbol Selection -->
+          <div>
+            <label style="display: block; margin-bottom: 6px; color: #374151; font-size: 14px;">Choose symbol (optional):</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="symbol-option" data-symbol="🔗" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Link">🔗</button>
+              <button type="button" class="symbol-option" data-symbol="📊" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Analytics">📊</button>
+              <button type="button" class="symbol-option" data-symbol="👥" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Contacts">👥</button>
+              <button type="button" class="symbol-option" data-symbol="🏢" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Companies">🏢</button>
+              <button type="button" class="symbol-option" data-symbol="💰" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Deals">💰</button>
+              <button type="button" class="symbol-option" data-symbol="🎫" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Tickets">🎫</button>
+              <button type="button" class="symbol-option" data-symbol="📧" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Email">📧</button>
+              <button type="button" class="symbol-option" data-symbol="📞" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Phone">📞</button>
+              <button type="button" class="symbol-option" data-symbol="📅" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Calendar">📅</button>
+              <button type="button" class="symbol-option" data-symbol="⚙️" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Settings">⚙️</button>
+              <button type="button" class="symbol-option" data-symbol="⭐" style="
+                width: 40px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease; font-size: 16px;
+              " title="Star">⭐</button>
+            </div>
+          </div>
+          
+          <!-- Color Selection -->
+          <div>
+            <label style="display: block; margin-bottom: 6px; color: #374151; font-size: 14px;">Choose color (optional):</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="color-option" data-color="" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #f8fafc; cursor: pointer; transition: all 0.2s ease;
+              " title="Default"></button>
+              <button type="button" class="color-option" data-color="#fef3c7" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #fef3c7; cursor: pointer; transition: all 0.2s ease;
+              " title="Yellow"></button>
+              <button type="button" class="color-option" data-color="#dbeafe" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #dbeafe; cursor: pointer; transition: all 0.2s ease;
+              " title="Blue"></button>
+              <button type="button" class="color-option" data-color="#d1fae5" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #d1fae5; cursor: pointer; transition: all 0.2s ease;
+              " title="Green"></button>
+              <button type="button" class="color-option" data-color="#fce7f3" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #fce7f3; cursor: pointer; transition: all 0.2s ease;
+              " title="Pink"></button>
+              <button type="button" class="color-option" data-color="#f3e8ff" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #f3e8ff; cursor: pointer; transition: all 0.2s ease;
+              " title="Purple"></button>
+              <button type="button" class="color-option" data-color="#fed7d7" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #fed7d7; cursor: pointer; transition: all 0.2s ease;
+              " title="Red"></button>
+              <button type="button" class="color-option" data-color="#e0e7ff" style="
+                width: 30px; height: 30px; border-radius: 50%; border: 2px solid #e5e7eb; 
+                background: #e0e7ff; cursor: pointer; transition: all 0.2s ease;
+              " title="Indigo"></button>
+            </div>
+          </div>
+          
+          <button id="add-custom-link-btn" style="
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+          ">Add Custom Link</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+
+  
+  // Add event listeners
+  const closeBtn = document.getElementById('close-selector-modal');
+  const addCustomBtn = document.getElementById('add-custom-link-btn');
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (document.body.contains(modal)) {
+        modal.remove();
+      }
+    });
+  }
+  
+  if (addCustomBtn) {
+    addCustomBtn.addEventListener('click', () => {
+      addCustomQuickLink(slotIndex, selectedSymbol, selectedColor);
+    });
+  }
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+  
+  // Add symbol selection event listeners
+  let selectedSymbol = '🔗';
+  let selectedColor = '';
+  
+  document.querySelectorAll('.symbol-option').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.symbol-option').forEach(b => b.style.borderColor = '#e5e7eb');
+      this.style.borderColor = '#8b5cf6';
+      selectedSymbol = this.getAttribute('data-symbol');
+    });
+  });
+  
+  // Add color selection event listeners
+  document.querySelectorAll('.color-option').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.color-option').forEach(b => b.style.borderColor = '#e5e7eb');
+      this.style.borderColor = '#8b5cf6';
+      selectedColor = this.getAttribute('data-color');
+    });
+  });
+  
+  // Allow Enter key for custom link
+  const customInputs = ['custom-link-name', 'custom-link-url'];
+  customInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          addCustomQuickLink(slotIndex, selectedSymbol, selectedColor);
+        }
+      });
+    }
+  });
+}
+
+// Select common page
+window.selectCommonPage = async function(name, url, icon, slotIndex) {
+  try {
+    const newLink = await QUICK_LINKS.addQuickLink(name, url, icon);
+    QUICK_LINKS.updateUI();
+    showQuickLinkMessage('Quick link added successfully!', 'success');
+    
+    // Close modal
+    const modal = document.getElementById('quicklink-selector-modal');
+    if (modal) modal.remove();
+    
+  } catch (error) {
+    showQuickLinkMessage(error.message, 'error');
+  }
+}
+
+// Add custom quick link
+window.addCustomQuickLink = async function(slotIndex, selectedSymbol = '🔗', selectedColor = '') {
+  const nameInput = document.getElementById('custom-link-name');
+  const descriptionInput = document.getElementById('custom-link-description');
+  const urlInput = document.getElementById('custom-link-url');
+  const addBtn = document.getElementById('add-custom-link-btn');
+  
+  if (!nameInput || !urlInput || !addBtn) return;
+  
+  const name = nameInput.value.trim();
+  const description = descriptionInput.value.trim();
+  const url = urlInput.value.trim();
+  
+  if (!name || !url) {
+    return;
+  }
+  
+  try {
+    addBtn.textContent = 'Adding...';
+    addBtn.disabled = true;
+    
+    const newLink = await QUICK_LINKS.addQuickLink(name, url, selectedSymbol, description, selectedColor);
+    QUICK_LINKS.updateUI();
+    
+    // Close modal
+    const modal = document.getElementById('quicklink-selector-modal');
+    if (modal) modal.remove();
+    
+  } catch (error) {
+    // Silent error handling
+  } finally {
+    addBtn.textContent = 'Add Custom Link';
+    addBtn.disabled = false;
+  }
+}
+
+
+
+
+
+// Move quick link to a new position
+async function moveQuickLink(fromSlot, toSlot) {
+  try {
+    console.log('🔄 Moving quick link from slot', fromSlot, 'to slot', toSlot);
+    
+    const quickLinks = await QUICK_LINKS.getQuickLinks();
+    console.log('🔗 Current quick links:', quickLinks.length);
+    
+    // Get the link at the fromSlot
+    const linkToMove = quickLinks[fromSlot];
+    if (!linkToMove) {
+      console.log('🔗 No link found at slot', fromSlot);
+      return;
+    }
+    
+    console.log('🔗 Moving link:', linkToMove.name);
+    
+    // Create new array with the moved link
+    const newQuickLinks = [...quickLinks];
+    
+    // Remove from current position
+    newQuickLinks.splice(fromSlot, 1);
+    
+    // Insert at new position
+    newQuickLinks.splice(toSlot, 0, linkToMove);
+    
+    console.log('🔗 New order:', newQuickLinks.map((link, index) => `${index}: ${link.name}`));
+    
+    // Save the new order
+    await QUICK_LINKS.saveQuickLinks(newQuickLinks);
+    console.log('🔗 Saved new order');
+    
+    // Update UI
+    QUICK_LINKS.updateUI();
+    console.log('🔗 Updated UI');
+    
+    // Visual feedback: briefly highlight the moved item
+    setTimeout(() => {
+      const movedSlot = document.querySelector(`[data-slot="${toSlot}"]`);
+      if (movedSlot) {
+        movedSlot.style.background = '#f0f9ff';
+        movedSlot.style.borderColor = '#7dd3fc';
+        setTimeout(() => {
+          movedSlot.style.transition = 'all 0.3s ease';
+          movedSlot.style.background = '';
+          movedSlot.style.borderColor = '';
+        }, 300);
+      }
+    }, 100);
+    
+  } catch (error) {
+    console.error('❌ Error moving quick link:', error);
+    showQuickLinkMessage('Error moving quick link', 'error');
+  }
+}
+
+// Reorder quick links
+
+
+
+
+// Show quick link message
+function showQuickLinkMessage(message, type = 'info') {
+  // Create temporary message element
+  const messageEl = document.createElement('div');
+  messageEl.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    z-index: 100001;
+    max-width: 300px;
+    word-wrap: break-word;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+  `;
+  
+  if (type === 'success') {
+    messageEl.style.background = '#10b981';
+  } else if (type === 'error') {
+    messageEl.style.background = '#ef4444';
+  } else {
+    messageEl.style.background = '#3b82f6';
+  }
+  
+  messageEl.textContent = message;
+  document.body.appendChild(messageEl);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    if (messageEl.parentNode) {
+      messageEl.parentNode.removeChild(messageEl);
+    }
+  }, 3000);
+}
 
