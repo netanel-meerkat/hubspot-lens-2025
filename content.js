@@ -551,6 +551,137 @@ function showReorderOptions(currentSlot) {
   });
 }
 
+// Create search container for results
+function createSearchContainer(results) {
+  const searchContainer = document.createElement('div');
+  searchContainer.style.cssText = `
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  `;
+  
+  // Get all unique properties for search
+  const allProperties = new Set();
+  results.forEach(record => {
+    if (record.properties) {
+      Object.keys(record.properties).forEach(prop => allProperties.add(prop));
+    }
+  });
+  
+  const properties = Array.from(allProperties).sort();
+  
+  searchContainer.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <span style="font-weight: 600; color: #1e293b;">🔍 Search Results</span>
+      <input type="text" id="lens-search-input" placeholder="Search across all properties..." style="
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s ease;
+      " onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='#d1d5db'">
+    </div>
+    
+    <div id="lens-search-results-info" style="
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #f0f9ff;
+      border: 1px solid #0ea5e9;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #0c4a6e;
+      display: none;
+    ">
+      <span id="lens-search-results-count"></span>
+    </div>
+  `;
+  
+  // Add event listeners
+  const searchInput = searchContainer.querySelector('#lens-search-input');
+  
+  // Add keyboard shortcut (Ctrl/Cmd + F) to focus search
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault();
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    }
+  });
+  
+  // Search functionality
+  searchInput.addEventListener('input', () => {
+    performSearch();
+  });
+  
+  // Clear search on Escape key
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      performSearch();
+    }
+  });
+  
+  return searchContainer;
+}
+
+// Perform search on results
+function performSearch() {
+  const searchTerm = document.getElementById('lens-search-input')?.value?.toLowerCase() || '';
+  const resultsInfo = document.getElementById('lens-search-results-info');
+  const resultsCount = document.getElementById('lens-search-results-count');
+  
+  if (!window.lensOriginalResults) return;
+  
+  let filteredResults = window.lensOriginalResults;
+  
+  if (searchTerm) {
+    filteredResults = window.lensOriginalResults.filter(record => {
+      // Search across all properties
+      return Object.values(record.properties || {}).some(value => {
+        const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        return stringValue.toLowerCase().includes(searchTerm);
+      });
+    });
+  }
+  
+  // Update results count
+  if (resultsInfo && resultsCount) {
+    if (searchTerm) {
+      resultsInfo.style.display = 'block';
+      resultsCount.textContent = `Found ${filteredResults.length.toLocaleString()} of ${window.lensOriginalResults.length.toLocaleString()} records`;
+    } else {
+      resultsInfo.style.display = 'none';
+    }
+  }
+  
+  // Update the table with filtered results
+  updateResultsTable(filteredResults);
+}
+
+// Update results table with filtered data
+function updateResultsTable(filteredResults) {
+  const container = document.getElementById('lens-results-container');
+  if (!container) return;
+  
+  // Find the existing table wrapper
+  const existingTableWrapper = container.querySelector('[style*="overflow-x: auto"]');
+  if (existingTableWrapper) {
+    // Create new table with filtered results
+    const newTable = createResultsTable(filteredResults);
+    
+    // Replace the old table
+    existingTableWrapper.innerHTML = '';
+    existingTableWrapper.appendChild(newTable);
+  }
+}
+
 // Generate reorder options for the modal
 function generateReorderOptions(currentSlot) {
   let options = '';
@@ -1721,6 +1852,9 @@ async function executeHubSpotQuery(objectType, properties, limit, filters) {
         
         displayQueryResults(response.data.results);
         resetQueryButton();
+        
+        // Hide progress indicator
+        const progressDiv = document.getElementById('lens-query-progress');
         if (progressDiv) {
           progressDiv.style.display = 'none';
         }
@@ -1736,6 +1870,9 @@ async function executeHubSpotQuery(objectType, properties, limit, filters) {
         console.error('❌ Query failed:', response?.error);
         alert('Query failed: ' + (response?.error || 'Unknown error'));
         resetQueryButton();
+        
+        // Hide progress indicator
+        const progressDiv = document.getElementById('lens-query-progress');
         if (progressDiv) {
           progressDiv.style.display = 'none';
         }
@@ -1844,19 +1981,10 @@ function displayQueryResults(results) {
   if (!container) return;
   
   if (results && results.length > 0) {
-    // Create results table
-    const table = createResultsTable(results);
-    container.innerHTML = '';
+    // Store original results for search functionality
+    window.lensOriginalResults = results;
     
-    // Create scrollable wrapper for the table
-    const tableWrapper = document.createElement('div');
-    tableWrapper.style.cssText = `
-      width: 100%;
-      overflow-x: auto;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    `;
-    tableWrapper.appendChild(table);
+    container.innerHTML = '';
     
     // Add record count and pagination info
     const infoDiv = document.createElement('div');
@@ -1906,6 +2034,36 @@ function displayQueryResults(results) {
       container.appendChild(warningDiv);
     }
     
+    // Add search functionality
+    try {
+      console.log('🔍 Creating search container...');
+      const searchContainer = createSearchContainer(results);
+      container.appendChild(searchContainer);
+      console.log('✅ Search container created successfully');
+    } catch (error) {
+      console.error('❌ Error creating search container:', error);
+    }
+    
+    // Create results table with search results
+    let table;
+    try {
+      console.log('🔍 Creating results table...');
+      table = createResultsTable(results);
+      console.log('✅ Results table created successfully');
+    } catch (error) {
+      console.error('❌ Error creating results table:', error);
+      return; // Exit if table creation fails
+    }
+    
+    // Create scrollable wrapper for the table
+    const tableWrapper = document.createElement('div');
+    tableWrapper.style.cssText = `
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    `;
+    tableWrapper.appendChild(table);
     container.appendChild(tableWrapper);
     
     // Show export buttons
@@ -2065,7 +2223,20 @@ function createResultsTable(results) {
     properties.forEach(prop => {
       const td = document.createElement('td');
       const value = record.properties?.[prop] || '';
-      td.textContent = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      
+      // Check if this cell should be highlighted (search term found)
+      const searchTerm = document.getElementById('lens-search-input')?.value?.toLowerCase() || '';
+      const shouldHighlight = searchTerm && displayValue.toLowerCase().includes(searchTerm);
+      
+      if (shouldHighlight) {
+        // Highlight the search term
+        const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        td.innerHTML = displayValue.replace(regex, '<mark style="background: #fef3c7; padding: 1px 2px; border-radius: 2px;">$1</mark>');
+      } else {
+        td.textContent = displayValue;
+      }
+      
       td.style.cssText = 'padding: 12px; color: #475569; min-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
       row.appendChild(td);
         });
