@@ -392,7 +392,213 @@ function addQuickLinkEventListeners() {
       }
     });
   });
+  
+  // Add click-based reordering system
+  addClickBasedReordering();
 }
+
+// Add click-based reordering system
+function addClickBasedReordering() {
+  console.log('🔄 Adding click-based reordering system');
+  
+  // Add click listeners to reorder handles
+  const reorderHandles = document.querySelectorAll('.reorder-handle');
+  console.log('🔄 Found', reorderHandles.length, 'reorder handles');
+  
+  reorderHandles.forEach((handle, index) => {
+    console.log('🔄 Adding click listener to handle', index);
+    handle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      console.log('🔄 Reorder handle clicked!');
+      
+      const slot = this.closest('.quicklink-slot');
+      if (!slot) {
+        console.log('🔄 No slot found for handle');
+        return;
+      }
+      
+      const currentSlot = parseInt(slot.getAttribute('data-slot'));
+      console.log('🔄 Reorder handle clicked for slot:', currentSlot);
+      
+      // Show reorder options
+      showReorderOptions(currentSlot);
+    });
+  });
+  
+  // Also add click listeners to the entire slot as backup
+  const slots = document.querySelectorAll('.quicklink-slot');
+  console.log('🔄 Found', slots.length, 'slots');
+  
+  slots.forEach((slot, index) => {
+    slot.addEventListener('click', function(e) {
+      // Only trigger if clicking on the slot but not on action buttons or content
+      if (e.target.closest('.action-buttons') || e.target.closest('.quicklink-content')) {
+        return;
+      }
+      
+      // If clicking on reorder handle, let that handle it
+      if (e.target.closest('.reorder-handle')) {
+        return;
+      }
+      
+      console.log('🔄 Slot clicked:', index);
+      const currentSlot = parseInt(this.getAttribute('data-slot'));
+      console.log('🔄 Slot clicked for slot:', currentSlot);
+      
+      // Show reorder options
+      showReorderOptions(currentSlot);
+    });
+  });
+}
+
+// Show reorder options modal
+function showReorderOptions(currentSlot) {
+  console.log('🔄 showReorderOptions called with slot:', currentSlot);
+  
+  // Clean up any existing modals
+  window.cleanupAllModals();
+  
+  // Create reorder modal
+  const modal = document.createElement('div');
+  modal.id = 'reorder-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.5);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  `;
+  
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    max-width: 400px;
+    width: 100%;
+    padding: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  `;
+  
+  modalContent.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+      color: white;
+      padding: 16px 20px;
+      margin: -20px -20px 20px -20px;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    ">
+      <h3 style="margin: 0; font-size: 16px;">🔄 Reorder Quick Link</h3>
+      <button id="close-reorder-modal" style="
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+      ">×</button>
+    </div>
+    
+    <p style="color: #6b7280; margin-bottom: 20px;">Choose where to move this quick link:</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      ${generateReorderOptions(currentSlot)}
+    </div>
+  `;
+  
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  // Add event listeners
+  const closeBtn = modal.querySelector('#close-reorder-modal');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      modal.remove();
+    });
+  }
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+  
+  // Add click listeners to reorder buttons
+  const reorderButtons = modal.querySelectorAll('.reorder-option');
+  reorderButtons.forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const targetSlot = parseInt(this.getAttribute('data-target-slot'));
+      console.log('🔄 Moving from slot', currentSlot, 'to slot', targetSlot);
+      
+      // Close modal
+      modal.remove();
+      
+      // Move the quick link
+      await moveQuickLink(currentSlot, targetSlot);
+    });
+  });
+}
+
+// Generate reorder options for the modal
+function generateReorderOptions(currentSlot) {
+  let options = '';
+  
+  // Generate options for all 10 slots
+  for (let i = 0; i < 10; i++) {
+    if (i === currentSlot) {
+      // Current position - show as disabled
+      options += `
+        <button class="reorder-option" data-target-slot="${i}" disabled style="
+          background: #f3f4f6;
+          color: #9ca3af;
+          border: 1px solid #e5e7eb;
+          padding: 12px 16px;
+          border-radius: 8px;
+          cursor: not-allowed;
+          text-align: left;
+          font-size: 14px;
+        ">
+          <span style="font-weight: 600;">Position ${i + 1}</span>
+          <span style="display: block; font-size: 12px; margin-top: 2px;">(Current position)</span>
+        </button>
+      `;
+    } else {
+      // Available position
+      options += `
+        <button class="reorder-option" data-target-slot="${i}" style="
+          background: white;
+          color: #374151;
+          border: 1px solid #d1d5db;
+          padding: 12px 16px;
+          border-radius: 8px;
+          cursor: pointer;
+          text-align: left;
+          font-size: 14px;
+          transition: all 0.2s ease;
+        " onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#8b5cf6'" onmouseout="this.style.background='white'; this.style.borderColor='#d1d5db'">
+          <span style="font-weight: 600;">Position ${i + 1}</span>
+          <span style="display: block; font-size: 12px; margin-top: 2px; color: #6b7280;">Move to this position</span>
+        </button>
+      `;
+    }
+  }
+  
+  return options;
+}
+
+
 
 // Add event listeners for move buttons
 function addMoveButtonEventListeners() {
@@ -1126,7 +1332,7 @@ function createLensDrawer() {
           <div>
             <h4 style="margin: 0;">🔗 Quick Links</h4>
             <p style="margin: 4px 0 0 0; color: #475569; line-height: 1.6; font-size: 13px;">
-              Drag to reorder • Click to edit • Up to 10 shortcuts
+              Click ⋮⋮ to reorder • Click to open • Up to 10 shortcuts
             </p>
           </div>
           <button id="save-current-page-btn" style="
@@ -4025,7 +4231,7 @@ window.cleanupAllModals = function() {
   console.log('🧹 Cleaning up modals...');
   
   // Remove specific modal IDs only - more targeted cleanup
-  const specificModals = document.querySelectorAll('#current-page-dialog, #quicklink-full-dialog, #quicklink-selector-modal, #quicklink-dialog');
+  const specificModals = document.querySelectorAll('#current-page-dialog, #quicklink-full-dialog, #quicklink-selector-modal, #quicklink-dialog, #reorder-modal');
   console.log('Found modals to remove:', specificModals.length);
   
   specificModals.forEach(modal => {
@@ -4445,6 +4651,22 @@ QUICK_LINKS.renderQuickLinks = async function() {
           cursor: pointer;
         " onmouseover="this.style.background='${link.color ? link.color + 'dd' : '#f1f5f9'}'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'; this.style.transform='translateY(-1px)'; this.querySelector('.action-buttons').style.opacity='1'" onmouseout="this.style.background='${link.color || '#f8fafc'}'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'; this.style.transform='translateY(0)'; this.querySelector('.action-buttons').style.opacity='0'">
           
+          <!-- Reorder Handle -->
+          <div class="reorder-handle" style="
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #9ca3af;
+            font-size: 12px;
+            margin-right: 8px;
+            flex-shrink: 0;
+            transition: color 0.2s ease;
+            border-radius: 4px;
+          " title="Click to reorder" onmouseover="this.style.color='#6b7280'; this.style.background='#f3f4f6'" onmouseout="this.style.color='#9ca3af'; this.style.background='transparent'">⋮⋮</div>
+          
           <!-- Link Content -->
           <div class="quicklink-content" data-url="${link.url}" style="
             display: flex; 
@@ -4582,6 +4804,12 @@ QUICK_LINKS.renderQuickLinks = async function() {
   
   // Add event listeners for move buttons
   addMoveButtonEventListeners();
+  
+  // Ensure reorder listeners are properly attached
+  setTimeout(() => {
+    console.log('🔄 Re-attaching reorder listeners after delay');
+    addClickBasedReordering();
+  }, 100);
 };
 
 
@@ -5023,4 +5251,21 @@ function showQuickLinkMessage(message, type = 'info') {
     }
   }, 3000);
 }
+
+// Test function for debugging reordering
+window.testReorderSystem = function() {
+  console.log('🧪 Testing reorder system...');
+  addClickBasedReordering();
+  
+  const handles = document.querySelectorAll('.reorder-handle');
+  const slots = document.querySelectorAll('.quicklink-slot');
+  
+  console.log('🧪 Found', handles.length, 'reorder handles');
+  console.log('🧪 Found', slots.length, 'slots');
+  
+  if (handles.length > 0) {
+    console.log('🧪 First handle:', handles[0]);
+    console.log('🧪 First slot:', slots[0]);
+  }
+};
 
